@@ -443,6 +443,14 @@ button{font-family:inherit}
       if(score>bestScore){bestScore=score;best=t;}});
     return bestScore>=2?best:null;
   }
+  var NUMW={one:1,two:2,three:3,four:4,five:5,six:6,seven:7,eight:8,nine:9,ten:10,eleven:11,twelve:12,thirteen:13,fourteen:14,other:2,couple:2,few:3};
+  function parseEvery(low){
+    if(/\b(daily|everyday)\b/.test(low)||/\b(every|each)\s+day\b/.test(low))return 1;
+    var m=low.match(/(?:every|each)\s+(\d+|other|couple(?:\s+of)?|few|one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|thirteen|fourteen)\s+days?\b/);
+    if(!m)return null;
+    var tok=m[1].split(/\s+/)[0];
+    return /^\d+$/.test(tok)?parseInt(tok,10):(NUMW[tok]||null);
+  }
   function summarize(){
     var d=day(),open=d.tasks.filter(function(t){return !t.done;}),parts=[];
     if(open.length)parts.push(open.length+' task'+(open.length>1?'s':'')+' left — '+open.map(function(t){return t.title;}).join(', '));
@@ -475,7 +483,8 @@ button{font-family:inherit}
   }
   function cleanTitle(s){
     var t=s.replace(/^\s*(please\s+)?(can you\s+)?(could you\s+)?(remind me to|remind me|set a reminder to|set a reminder|don'?t forget to|remember to|i need to|i have to|i want to|i should|add|schedule|create|make|put)\s+/i,'');
-    t=t.replace(/\bevery\s+\d+\s*days?\b/ig,'');
+    t=t.replace(/\bevery\s+(other\s+day|day|(?:\d+|one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|thirteen|fourteen|couple(?:\s+of)?|few)\s*days?)\b/ig,'');
+    t=t.replace(/\b(daily|everyday)\b/ig,'');
     t=t.replace(/\bday after tomorrow\b/ig,'').replace(/\b(tomorrow|today|tonight|next week|this week)\b/ig,'');
     t=t.replace(/\b(sunday|monday|tuesday|wednesday|thursday|friday|saturday)\b/ig,'');
     t=t.replace(/\b(sun|mon|tue|tues|wed|weds|thu|thur|thurs|fri|sat)\b/ig,'');
@@ -556,11 +565,11 @@ button{font-family:inherit}
         act:function(){var nd=decMeta(pk);if(!d.decisions.some(function(x){return x.key===pk;}))d.decisions.push(nd);renderAll();flash('Added — 7 '+noun+' ✓');}};
     }
 
-    var iv=low.match(/every\s+(\d+)\s*days?/);
-    if(iv){var n=+iv[1],rt=cleanTitle(s);
-      return {reply:"Got it — every "+n+" days, from now. I'll surface the next one and roll it forward as you check it off.",
-        ops:['+ '+rt+' · every '+n+'d'],
-        act:function(){d.tasks.push({id:'t'+Date.now(),title:rt,repeat:'every '+n+'d',done:false});renderAll();flash('Added — every '+n+'d ✓');}};
+    var evN=parseEvery(low);
+    if(evN){var n=evN,rt=cleanTitle(s),lab=n===1?'daily':'every '+n+'d',span=n===1?'every day':'every '+n+' days';
+      return {reply:"Got it — "+span+", from now. I'll surface the next one and roll it forward as you check it off.",
+        ops:['+ '+rt+' · '+lab],
+        act:function(){d.tasks.push({id:'t'+Date.now(),title:rt,repeat:lab,done:false});renderAll();flash('Added — '+lab+' ✓');}};
     }
 
     if(/what (should i |to |can i )?(wear|eat|have|cook)|outfit for|nothing to wear|what'?s for (lunch|dinner|breakfast)/.test(low)){
