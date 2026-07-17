@@ -332,7 +332,7 @@ button{font-family:inherit}
   var store={};
   store[BASE]={
     decisions:[{key:'lunch',label:'Lunch',icon:'salad',idx:0},{key:'wear',label:'Wear',icon:'shirt',idx:0}],
-    tasks:[{id:'run',title:'Morning run (20 min)',done:true},{id:'water',title:'Water the plants',repeat:'every 3d',done:false},{id:'email',title:"Reply to Sarah's email",time:'2:00 PM',done:false}]
+    tasks:[{id:'run',title:'Morning run (20 min)',done:true},{id:'email',title:"Reply to Sarah's email",time:'2:00 PM',done:false}]
   };
   var sel=BASE, monthOpen=false, busy=false;
 
@@ -616,7 +616,7 @@ button{font-family:inherit}
     },820);
   }
 
-  var chips=['Remind me to call the dentist Tue 3pm','Plan my dinners this week','Move the email to tomorrow','I finished watering the plants','Today feels like too much','What should I wear today?'];
+  var chips=['Remind me to call the dentist Tue 3pm','Plan my dinners this week','Move the email to tomorrow','Remind me to water the plants every three days','Today feels like too much','What should I wear today?'];
   function renderChips(){var c=$('#chips');c.innerHTML='';chips.forEach(function(t){var b=document.createElement('button');b.className='chip';b.type='button';b.textContent=t;b.addEventListener('click',function(){$('#input').value='';ask(t);});c.appendChild(b);});}
 
   $('#composer').addEventListener('submit',function(e){e.preventDefault();var v=$('#input').value.trim();if(!v)return;$('#input').value='';ask(v);});
