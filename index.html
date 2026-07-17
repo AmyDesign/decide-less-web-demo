@@ -73,8 +73,8 @@ button{font-family:inherit}
 .cal-cell{aspect-ratio:1/1;border:none;background:none;border-radius:9px;display:flex;flex-direction:column;align-items:center;justify-content:center;cursor:pointer;padding:0}
 .cal-cell:hover .cal-num{background:#f0f0ee}
 .cal-num{font-size:11.5px;width:24px;height:24px;line-height:24px;text-align:center;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;color:var(--ink)}
-.cal-dot{height:5px;width:5px;border-radius:50%;background:var(--accent-ink);margin-top:1px;opacity:0}
-.cal-cell.has .cal-dot{opacity:1}
+.cal-dots{display:flex;gap:2px;justify-content:center;height:5px;margin-top:1px}
+.cal-dot{height:5px;width:5px;border-radius:50%;background:var(--accent-ink)}
 .cal-cell.today .cal-num{background:var(--accent);color:var(--on-accent);font-weight:600}
 .cal-cell.sel:not(.today) .cal-num{box-shadow:inset 0 0 0 1.5px var(--accent);font-weight:600}
 .seclabel{font-size:11.5px;color:var(--muted);display:flex;align-items:center;gap:6px;margin-bottom:9px}
@@ -342,7 +342,11 @@ button{font-family:inherit}
   function addD(dt,n){var d=new Date(dt);d.setDate(d.getDate()+n);return d;}
   function label(iso){var dt=parseD(iso);return DOWs[dt.getDay()]+' '+MON[dt.getMonth()]+' '+dt.getDate();}
   function day(iso){iso=iso||sel;if(!store[iso])store[iso]={decisions:[],tasks:[]};return store[iso];}
-  function has(iso){var s=store[iso];return s&&(s.tasks.length||s.decisions.length);}
+  function has(iso){var s=store[iso];if(s&&(s.tasks.length||s.decisions.length))return true;return recurringOn(iso).length>0;}
+  function diffDays(a,b){return Math.round((parseD(b)-parseD(a))/86400000);}
+  function recurringOn(iso){var res=[];for(var k in store){if(!store.hasOwnProperty(k))continue;store[k].tasks.forEach(function(t){if(t.every&&k!==iso){var dd=diffDays(k,iso);if(dd>0&&dd%t.every===0)res.push(t);}});}return res;}
+  function tasksFor(iso){var s=store[iso];return (s?s.tasks:[]).concat(recurringOn(iso));}
+  function itemCount(iso){var s=store[iso];return (s?s.tasks.length+s.decisions.length:0)+recurringOn(iso).length;}
   function icon(n){return '<i class="ti ti-'+n+'"></i>';}
   var toastEl=$('#toast'),toastT;
   function flash(m){toastEl.textContent=m;toastEl.classList.add('show');clearTimeout(toastT);toastT=setTimeout(function(){toastEl.classList.remove('show')},2200);}
@@ -373,8 +377,9 @@ button{font-family:inherit}
     var wd=['S','M','T','W','T','F','S']; for(var w=0;w<7;w++)html+='<div class="cal-wd">'+wd[w]+'</div>';
     for(var b=0;b<start;b++)html+='<div></div>';
     for(var d2=1;d2<=days;d2++){var iso=y+'-'+pad(mo+1)+'-'+pad(d2);
-      var cls='cal-cell'+(iso===BASE?' today':'')+(iso===sel?' sel':'')+(has(iso)?' has':'');
-      html+='<button class="'+cls+'" data-iso="'+iso+'"><span class="cal-num">'+d2+'</span><span class="cal-dot"></span></button>';}
+      var cnt=itemCount(iso),cls='cal-cell'+(iso===BASE?' today':'')+(iso===sel?' sel':'')+(cnt?' has':'');
+      var dots='',nd=Math.min(cnt,3);for(var qd=0;qd<nd;qd++)dots+='<span class="cal-dot"></span>';
+      html+='<button class="'+cls+'" data-iso="'+iso+'"><span class="cal-num">'+d2+'</span><span class="cal-dots">'+dots+'</span></button>';}
     html+='</div>'; mp.innerHTML=html;
     var cells=mp.querySelectorAll('.cal-cell');
     for(var k=0;k<cells.length;k++){(function(c){c.addEventListener('click',function(){sel=c.getAttribute('data-iso');renderAll();});})(cells[k]);}
@@ -396,16 +401,17 @@ button{font-family:inherit}
     })(cards[i]);}
   }
   function renderTasks(){
-    var d=day(), wrap=$('#tasksec');
-    var open=d.tasks.filter(function(t){return !t.done}).length;
-    var count=d.tasks.length?('<span style="color:var(--muted)">· '+open+' left</span>'):'';
+    var wrap=$('#tasksec');
+    var list=tasksFor(sel);
+    var open=list.filter(function(t){return !t.done}).length;
+    var count=list.length?('<span style="color:var(--muted)">· '+open+' left</span>'):'';
     var html='<div class="seclabel">To do '+count+'</div>';
-    if(!d.tasks.length){
+    if(!list.length){
       html+='<div class="quiet"><div class="orb">'+icon(sel===BASE?'sun':'moon-stars')+'</div><h4>'+(sel===BASE?'A clear day':'Nothing planned')+'</h4><p>Tell the assistant below — try "remind me to…"</p></div>';
       wrap.innerHTML=html; updateStatus(); return;
     }
     html+='<div class="tasks">';
-    d.tasks.forEach(function(t){
+    list.forEach(function(t){
       var meta=[]; if(t.repeat)meta.push('<span class="rep">'+icon('refresh')+' '+t.repeat+'</span>'); if(t.time)meta.push('<span>'+t.time+'</span>'); if(t.reminder)meta.push(icon('bell'));
       html+='<div class="task'+(t.done?' done':'')+'" data-id="'+t.id+'"><button class="box">'+icon('check')+'</button>'
         +'<div class="tbody"><span class="tn">'+t.title+'</span><span class="meta">'+meta.join('')+'</span></div></div>';
@@ -413,14 +419,14 @@ button{font-family:inherit}
     html+='</div>'; wrap.innerHTML=html;
     var rows=wrap.querySelectorAll('.task');
     for(var i=0;i<rows.length;i++){(function(row){row.querySelector('.box').addEventListener('click',function(){
-      var id=row.getAttribute('data-id');var t=day().tasks.filter(function(x){return x.id===id})[0];t.done=!t.done;renderTasks();});})(rows[i]);}
+      var id=row.getAttribute('data-id');var t=list.filter(function(x){return x.id===id})[0];if(t){t.done=!t.done;renderTasks();}});})(rows[i]);}
     updateStatus();
   }
   function updateStatus(){
-    var d=day(),open=d.tasks.filter(function(t){return !t.done}).length;
+    var list=tasksFor(sel),open=list.filter(function(t){return !t.done}).length;
     var sp=$('#setpill');
-    if(d.tasks.length&&open===0){sp.classList.add('done');$('#setpilltxt').textContent='All done';}
-    else{sp.classList.remove('done');$('#setpilltxt').textContent=d.tasks.length?"You're all set":'A clear day';}
+    if(list.length&&open===0){sp.classList.add('done');$('#setpilltxt').textContent='All done';}
+    else{sp.classList.remove('done');$('#setpilltxt').textContent=list.length?"You're all set":'A clear day';}
   }
   function renderAll(){renderHeader();renderStrip();renderMonth();renderDecisions();renderTasks();}
 
@@ -569,7 +575,7 @@ button{font-family:inherit}
     if(evN){var n=evN,rt=cleanTitle(s),lab=n===1?'daily':'every '+n+'d',span=n===1?'every day':'every '+n+' days';
       return {reply:"Got it — "+span+", from now. I'll surface the next one and roll it forward as you check it off.",
         ops:['+ '+rt+' · '+lab],
-        act:function(){d.tasks.push({id:'t'+Date.now(),title:rt,repeat:lab,done:false});renderAll();flash('Added — '+lab+' ✓');}};
+        act:function(){d.tasks.push({id:'t'+Date.now(),title:rt,repeat:lab,every:n,done:false});renderAll();flash('Added — '+lab+' ✓');}};
     }
 
     if(/what (should i |to |can i )?(wear|eat|have|cook)|outfit for|nothing to wear|what'?s for (lunch|dinner|breakfast)/.test(low)){
